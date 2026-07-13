@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.5.4.3
+
+- Fix blank web UI: `ak worker` and `ak server` both bind port 9000 when run
+  in the same container — the worker's internal server won the bind and served
+  empty responses while the real web server failed with "address already in
+  use". The add-on now uses authentik's `allinone` mode, which runs the worker
+  and web server as one coordinated process (the intended single-container
+  deployment mode).
+
 ## 2026.5.4.2
 
 - Fix PostgreSQL "Permission denied" crash ~30s after boot: the base image's

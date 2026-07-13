@@ -338,9 +338,8 @@ AK_CMD="$(command -v ak || true)"
 
 cleanup() {
     log "Shutting down"
-    [ -n "${SERVER_PID:-}" ] && kill -TERM "${SERVER_PID}" 2>/dev/null
-    [ -n "${WORKER_PID:-}" ] && kill -TERM "${WORKER_PID}" 2>/dev/null
-    wait "${SERVER_PID}" "${WORKER_PID}" 2>/dev/null
+    [ -n "${AK_PID:-}" ] && kill -TERM "${AK_PID}" 2>/dev/null
+    wait "${AK_PID}" 2>/dev/null
     [ -n "${REDIS_PID:-}" ] && kill -TERM "${REDIS_PID}" 2>/dev/null
     if [ "${DB_MODE}" = "internal" ]; then
         runuser -u postgres -- "${PG_BIN}/pg_ctl" -D /data/postgresql -m fast -w stop
@@ -352,18 +351,18 @@ on_term() {
 }
 trap on_term TERM INT
 
-log "Starting authentik worker"
-runuser -u authentik -- "${AK_CMD}" worker &
-WORKER_PID=$!
+# "allinone" runs the worker and the web server in one coordinated process.
+# Do NOT start `ak worker` and `ak server` separately in a single container:
+# both try to bind port 9000 (the worker's internal server wins, and the real
+# web UI ends up unreachable — blank pages with instant empty 200 responses).
+log "Starting authentik (all-in-one: server + worker)"
+runuser -u authentik -- "${AK_CMD}" allinone &
+AK_PID=$!
 
-log "Starting authentik server"
-runuser -u authentik -- "${AK_CMD}" server &
-SERVER_PID=$!
-
-# If either process dies, stop everything so the Supervisor watchdog restarts
-# the add-on cleanly.
-wait -n "${WORKER_PID}" "${SERVER_PID}"
+# If authentik dies, stop everything so the Supervisor watchdog restarts the
+# add-on cleanly.
+wait "${AK_PID}"
 rc=$?
-log "An authentik process exited unexpectedly (rc=${rc})"
+log "authentik exited unexpectedly (rc=${rc})"
 cleanup
 exit "${rc:-1}"
