@@ -23,13 +23,17 @@ certs/             drop certificates here — authentik auto-imports them
 custom-templates/  custom email templates
 blueprints/        custom authentik blueprints (YAML), applied automatically
 geoip/             optional GeoLite2-City.mmdb / GeoLite2-ASN.mmdb
-backups/           authentik-latest.sql — written before every HA backup
+backups/           authentik-latest.sql (fresh SQL dump) + secrets.env
+restore/           drop files here to restore/import — see below
 authentik.env      optional AUTHENTIK_*=value lines, applied at startup
 ```
 
-Before every Home Assistant backup the add-on writes a consistent SQL dump to
-`backups/authentik-latest.sql`, so backups always contain a clean copy of the
-database in addition to the raw PostgreSQL files.
+The add-on keeps `backups/` up to date automatically: a consistent SQL dump is
+written to `backups/authentik-latest.sql` a few minutes after every start,
+once a day, on every shutdown, and right before every Home Assistant backup.
+`backups/secrets.env` holds the authentik secret key. Together with the rest
+of this folder (media, certs, templates, blueprints), that is **everything
+needed to rebuild this instance on another machine** — see below.
 
 ## First start
 
@@ -256,14 +260,41 @@ Download the free MaxMind GeoLite2 databases and drop
 addon_config `geoip/` folder, then restart the add-on. Login events will then
 include location data, and you can use GeoIP policies in flows.
 
-## Backups and updates
+## Backups, restores and moving between machines
 
-- Home Assistant backups cover both the database (`/data`) and the
-  addon_config folder, and a consistent SQL dump is written to
-  `backups/authentik-latest.sql` right before each backup.
-- Add-on updates ship new authentik versions. authentik migrates its database
-  automatically on start. **Take a backup before updating** — authentik does
-  not support downgrades.
+**Easiest path — Home Assistant backups.** HA backups cover both the database
+(`/data`) and the addon_config folder. Restoring that backup on the same or a
+new Home Assistant machine restores authentik completely; nothing else needed.
+
+**Manual migration / disaster recovery** using the addon_config folder
+(`/addon_configs/…_authentik`, reachable via Samba/SSH):
+
+1. On the source machine, grab the whole folder. For the freshest possible
+   database dump, stop the add-on first (a dump is written on shutdown).
+2. On the target machine, install the add-on and start it once so the folder
+   structure exists (a brand-new, empty authentik comes up).
+3. Copy `media/`, `certs/`, `custom-templates/`, `blueprints/` and `geoip/`
+   from the source into the target's addon_config folder.
+4. Put the source's `backups/authentik-latest.sql` into the target's
+   `restore/` folder **renamed to `authentik.sql`**, and copy the source's
+   `backups/secrets.env` into `restore/` as well.
+5. Restart the add-on. It replaces its database with the imported dump and
+   adopts the imported secret key (watch the log for `RESTORE:` lines), then
+   renames the restore files to `*.imported-<timestamp>`.
+
+> **Warning:** anything in `restore/` replaces the add-on's current database
+> on the next start. Don't leave files there casually.
+
+The SQL dump is a standard `pg_dump`, so it also works for migrating *away*
+from this add-on — e.g. into the official authentik docker-compose stack
+(import the dump into its PostgreSQL and set `AUTHENTIK_SECRET_KEY` from
+`secrets.env`).
+
+## Updates
+
+Add-on updates ship new authentik versions. authentik migrates its database
+automatically on start. **Take a backup before updating** — authentik does
+not support downgrades.
 
 ## Resource usage
 

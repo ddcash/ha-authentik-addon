@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.5.4.5
+
+- The addon_config folder is now a complete, portable backup: the SQL dump
+  (`backups/authentik-latest.sql`) is refreshed a few minutes after start,
+  daily, on shutdown, and before every Home Assistant backup — and the
+  authentik secret key is exported alongside it (`backups/secrets.env`).
+- New restore/migration mechanism: place `authentik.sql` (and optionally
+  `secrets.env`) into the `restore/` folder and restart — the add-on replaces
+  its database with the dump and adopts the secret key. Documented in DOCS.
+- Add-on stop timeout raised to 120s so the shutdown dump always completes.
+
 ## 2026.5.4.4
 
 - Fix add-on showing "Starting" forever in Home Assistant: replaced the

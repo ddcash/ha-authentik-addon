@@ -56,12 +56,11 @@ log "PostgreSQL: ${DB_MODE} — Redis: ${REDIS_MODE}"
 # ---------------------------------------------------------------------------
 mkdir -p /data/redis /run/postgresql \
     /config/media /config/certs /config/custom-templates /config/blueprints \
-    /config/geoip /config/backups
+    /config/geoip /config/backups /config/restore
 chown -R authentik:authentik /config/media /config/certs /config/custom-templates \
     /config/blueprints /config/geoip /data/redis
 
-if [ ! -s /config/README.txt ]; then
-    cat > /config/README.txt <<'EOF'
+cat > /config/README.txt <<'EOF'
 authentik add-on configuration folder
 =====================================
 media/             uploaded icons, flow backgrounds, application logos
@@ -70,15 +69,20 @@ certs/             drop certificates here; authentik auto-imports them
 custom-templates/  custom email templates
 blueprints/        custom authentik blueprints (YAML), applied automatically
 geoip/             optional GeoLite2-City.mmdb / GeoLite2-ASN.mmdb for GeoIP
-backups/           authentik-latest.sql — consistent DB dump written before
-                   every Home Assistant backup
+backups/           authentik-latest.sql — SQL dump refreshed shortly after
+                   start, daily, on shutdown, and before Home Assistant
+                   backups — plus secrets.env (the authentik secret key).
+                   Together with this folder's other contents, that is
+                   everything needed to rebuild this instance elsewhere.
+restore/           to restore/migrate: put authentik.sql (a dump) and
+                   optionally secrets.env in here and restart the add-on.
+                   WARNING: this REPLACES the add-on's current database.
 authentik.env      optional; lines of AUTHENTIK_*=value applied at startup,
                    overriding add-on options (advanced use)
 
 In the default "internal" mode the PostgreSQL database itself lives in the
 add-on's /data volume and is included in Home Assistant backups automatically.
 EOF
-fi
 
 # authentik expects fixed paths inside the container; point them at the
 # user-accessible addon_config storage.
@@ -103,12 +107,30 @@ export AUTHENTIK_STORAGE__FILE__PATH="/config/media"
 # ---------------------------------------------------------------------------
 # Secrets (generated once, persisted in /data)
 # ---------------------------------------------------------------------------
+# Restore/migration: a secrets.env dropped into /config/restore replaces the
+# stored secret key (sessions/cookies from the imported database stay valid).
+if [ -s /config/restore/secrets.env ]; then
+    RESTORED_KEY="$(grep '^AUTHENTIK_SECRET_KEY=' /config/restore/secrets.env | head -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//')"
+    if [ -n "${RESTORED_KEY}" ]; then
+        log "RESTORE: applying secret key from /config/restore/secrets.env"
+        printf '%s' "${RESTORED_KEY}" > /data/secret_key
+        mv /config/restore/secrets.env "/config/restore/secrets.env.imported-$(date +%Y%m%d%H%M%S)"
+    else
+        log "WARNING: /config/restore/secrets.env has no AUTHENTIK_SECRET_KEY= line — ignoring it"
+    fi
+fi
+
 if [ ! -s /data/secret_key ]; then
     log "Generating authentik secret key"
     openssl rand -base64 60 | tr -d '\n' > /data/secret_key
 fi
 chmod 600 /data/secret_key
 SECRET_KEY="$(cat /data/secret_key)"
+
+# Keep a copy of the secret key next to the user-visible database dumps: a
+# dump alone is not enough to rebuild an instance elsewhere.
+printf 'AUTHENTIK_SECRET_KEY=%s\n' "${SECRET_KEY}" > /config/backups/secrets.env
+chmod 600 /config/backups/secrets.env
 
 # ---------------------------------------------------------------------------
 # PostgreSQL — internal or external
@@ -170,6 +192,22 @@ if [ "${DB_MODE}" = "internal" ]; then
         log "Creating database 'authentik'"
         psql_su "CREATE DATABASE authentik OWNER authentik" || exit 1
     fi
+
+    # Restore/migration: a dump dropped into /config/restore REPLACES the
+    # current database on the next start.
+    if [ -s /config/restore/authentik.sql ]; then
+        log "RESTORE: /config/restore/authentik.sql found — replacing the authentik database with it"
+        psql_su "DROP DATABASE IF EXISTS authentik WITH (FORCE)" || exit 1
+        psql_su "CREATE DATABASE authentik OWNER authentik" || exit 1
+        if runuser -u postgres -- psql -h /run/postgresql -d authentik -q \
+            -v ON_ERROR_STOP=1 -f /config/restore/authentik.sql > /dev/null; then
+            mv /config/restore/authentik.sql "/config/restore/authentik.sql.imported-$(date +%Y%m%d%H%M%S)"
+            log "RESTORE: database import finished"
+        else
+            log "FATAL: database restore failed — fix or remove /config/restore/authentik.sql"
+            exit 1
+        fi
+    fi
 else
     AK_PG_HOST="$(opt '.postgresql_host')"
     AK_PG_PORT="$(opt '.postgresql_port')"
@@ -190,6 +228,8 @@ else
         log "Check host/port, and make sure the database server allows remote connections."
         exit 1
     fi
+    [ -s /config/restore/authentik.sql ] && \
+        log "NOTE: /config/restore/authentik.sql is ignored in external database mode — import it into the external server manually"
     log "External PostgreSQL is reachable. The database '${AK_PG_NAME}' and user '${AK_PG_USER}' must already exist — authentik manages the schema itself."
 fi
 
@@ -338,9 +378,12 @@ AK_CMD="$(command -v ak || true)"
 
 cleanup() {
     log "Shutting down"
+    [ -n "${DUMP_TIMER_PID:-}" ] && kill "${DUMP_TIMER_PID}" 2>/dev/null
     [ -n "${AK_PID:-}" ] && kill -TERM "${AK_PID}" 2>/dev/null
     wait "${AK_PID}" 2>/dev/null
     [ -n "${REDIS_PID:-}" ] && kill -TERM "${REDIS_PID}" 2>/dev/null
+    # leave a fresh dump behind (best effort; postgres is still running)
+    /dump-db.sh
     if [ "${DB_MODE}" = "internal" ]; then
         runuser -u postgres -- "${PG_BIN}/pg_ctl" -D /data/postgresql -m fast -w stop
     fi
@@ -350,6 +393,17 @@ on_term() {
     exit 0
 }
 trap on_term TERM INT
+
+# Refresh the user-visible SQL dump shortly after boot and daily thereafter
+# (it is also refreshed on shutdown and before every Home Assistant backup).
+(
+    sleep 300
+    while :; do
+        /dump-db.sh
+        sleep 86400
+    done
+) &
+DUMP_TIMER_PID=$!
 
 # "allinone" runs the worker and the web server in one coordinated process.
 # Do NOT start `ak worker` and `ak server` separately in a single container:

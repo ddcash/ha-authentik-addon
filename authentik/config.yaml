@@ -1,5 +1,5 @@
 name: authentik
-version: "2026.5.4.4"
+version: "2026.5.4.5"
 slug: authentik
 description: Self-hosted identity provider (SSO) — OIDC, SAML, LDAP and proxy auth for all your apps
 url: https://github.com/ddcash/ha-authentik-addon
@@ -7,6 +7,7 @@ arch:
   - amd64
   - aarch64
 startup: services
+timeout: 120
 ports:
   9000/tcp: 9000
   9443/tcp: 9443
