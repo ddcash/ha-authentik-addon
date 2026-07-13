@@ -1,0 +1,133 @@
+name: Update authentik version
+
+# Checks authentik's official version endpoint daily. When a new stable
+# release is available, this workflow:
+#   1. verifies the new server and proxy images exist on ghcr.io for
+#      amd64 + arm64,
+#   2. replaces the pinned version everywhere in the repo and sets the
+#      add-on version to match the authentik version,
+#   3. prepends a CHANGELOG entry linking the official release notes,
+#   4. lints the updated add-on,
+#   5. commits and pushes to main.
+# Installed add-ons then show an update in the Home Assistant UI.
+#
+# The lint runs inside this workflow on purpose: pushes made with the
+# built-in GITHUB_TOKEN do not trigger other workflows, so lint.yaml would
+# not run on the auto-commit.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: update-authentik
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Check for new authentik release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine current and latest versions
+        id: versions
+        run: |
+          set -euo pipefail
+
+          CURRENT="$(sed -n 's/^version: "\(.*\)"/\1/p' authentik/config.yaml)"
+          if [ -z "${CURRENT}" ]; then
+            echo "::error::Could not read current version from authentik/config.yaml"
+            exit 1
+          fi
+
+          JSON="$(curl -fsSL https://version.goauthentik.io/version.json)"
+          LATEST="$(echo "${JSON}" | jq -r '.stable.version')"
+          NOTES_URL="$(echo "${JSON}" | jq -r '.stable.changelog_url')"
+
+          if ! echo "${LATEST}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Unexpected version format from version endpoint: '${LATEST}'"
+            exit 1
+          fi
+
+          UPDATE=false
+          if [ "${CURRENT}" != "${LATEST}" ] && \
+             [ "$(printf '%s\n%s\n' "${CURRENT}" "${LATEST}" | sort -V | tail -n 1)" = "${LATEST}" ]; then
+            UPDATE=true
+          fi
+
+          echo "Current: ${CURRENT} — Latest stable: ${LATEST} — Update needed: ${UPDATE}"
+          {
+            echo "current=${CURRENT}"
+            echo "latest=${LATEST}"
+            echo "notes_url=${NOTES_URL}"
+            echo "update=${UPDATE}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Verify new images exist for all architectures
+        if: steps.versions.outputs.update == 'true'
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          set -euo pipefail
+          for image in ghcr.io/goauthentik/server ghcr.io/goauthentik/proxy; do
+            OUT="$(docker buildx imagetools inspect "${image}:${LATEST}")"
+            echo "${OUT}" | grep -q 'linux/amd64' || { echo "::error::${image}:${LATEST} missing linux/amd64"; exit 1; }
+            echo "${OUT}" | grep -q 'linux/arm64' || { echo "::error::${image}:${LATEST} missing linux/arm64"; exit 1; }
+            echo "${image}:${LATEST} OK (amd64 + arm64)"
+          done
+
+      - name: Update pinned versions
+        if: steps.versions.outputs.update == 'true'
+        env:
+          CURRENT: ${{ steps.versions.outputs.current }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+          NOTES_URL: ${{ steps.versions.outputs.notes_url }}
+        run: |
+          set -euo pipefail
+
+          OLD_RE="${CURRENT//./\\.}"
+          for f in authentik/config.yaml authentik/build.yaml authentik/Dockerfile authentik/DOCS.md README.md; do
+            sed -i "s/${OLD_RE}/${LATEST}/g" "${f}"
+          done
+
+          # Prepend a changelog entry ("# Changelog" + blank line are the
+          # first two lines by convention).
+          {
+            echo "# Changelog"
+            echo ""
+            echo "## ${LATEST}"
+            echo ""
+            echo "- Update authentik to ${LATEST} (automated)."
+            echo "- Release notes: ${NOTES_URL}"
+            echo ""
+            tail -n +3 authentik/CHANGELOG.md
+          } > /tmp/CHANGELOG.md
+          mv /tmp/CHANGELOG.md authentik/CHANGELOG.md
+
+          echo "Diff to be committed:"
+          git diff --stat
+
+      - name: Lint updated add-on
+        if: steps.versions.outputs.update == 'true'
+        uses: frenck/action-addon-linter@v2
+        with:
+          path: ./authentik
+
+      - name: Commit and push
+        if: steps.versions.outputs.update == 'true'
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+          NOTES_URL: ${{ steps.versions.outputs.notes_url }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898306+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Update authentik to ${LATEST}" -m "Release notes: ${NOTES_URL}"
+          git push

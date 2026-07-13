@@ -1,0 +1,144 @@
+configuration:
+  log_level:
+    name: Log level
+    description: Verbosity of authentik's logs.
+  bootstrap_email:
+    name: Bootstrap admin email
+    description: Email for the built-in akadmin account. Applied on first start only.
+  bootstrap_password:
+    name: Bootstrap admin password
+    description: Password for the built-in akadmin account. Applied on first start only.
+  bootstrap_token:
+    name: Bootstrap API token
+    description: >-
+      API token created for akadmin on first start only. Useful for automating
+      authentik via its API right after install.
+  cookie_domain:
+    name: Cookie domain
+    description: >-
+      Parent domain to scope authentik's session cookie to (e.g. example.com).
+      Leave empty unless you need the session shared across subdomains.
+  trusted_proxy_cidrs:
+    name: Trusted proxy CIDRs
+    description: >-
+      Comma-separated CIDRs allowed to set X-Forwarded-* headers. Leave empty
+      for authentik's default (all private/RFC1918 ranges), which covers a
+      local cloudflared or reverse proxy.
+  postgresql_mode:
+    name: PostgreSQL mode
+    description: >-
+      "internal" runs PostgreSQL inside the add-on (default, zero setup).
+      "external" connects to a PostgreSQL server you run elsewhere — another
+      machine, container, or database add-on.
+  postgresql_host:
+    name: External PostgreSQL host
+    description: Hostname or IP of the external PostgreSQL server (external mode only).
+  postgresql_port:
+    name: External PostgreSQL port
+    description: Port of the external PostgreSQL server (default 5432).
+  postgresql_name:
+    name: External PostgreSQL database
+    description: Database name. Must already exist; authentik manages the schema itself.
+  postgresql_user:
+    name: External PostgreSQL user
+    description: Database user. Must already exist and own the database.
+  postgresql_password:
+    name: External PostgreSQL password
+    description: Password for the database user (external mode only).
+  postgresql_sslmode:
+    name: External PostgreSQL SSL mode
+    description: libpq-style sslmode for the external connection (external mode only).
+  redis_mode:
+    name: Redis mode
+    description: >-
+      "internal" runs Redis inside the add-on (default, zero setup).
+      "external" connects to a Redis server you run elsewhere.
+  redis_host:
+    name: External Redis host
+    description: Hostname or IP of the external Redis server (external mode only).
+  redis_port:
+    name: External Redis port
+    description: Port of the external Redis server (default 6379).
+  redis_password:
+    name: External Redis password
+    description: Password, if the external Redis requires AUTH. Leave empty for none.
+  redis_db:
+    name: External Redis database index
+    description: Redis logical database number (default 0).
+  redis_tls:
+    name: External Redis TLS
+    description: Connect to the external Redis over TLS.
+  error_reporting:
+    name: Error reporting
+    description: Send anonymised error reports to the authentik project.
+  disable_update_check:
+    name: Disable update check
+    description: Disable authentik's own update check (updates come via this add-on).
+  disable_startup_analytics:
+    name: Disable startup analytics
+    description: Disable anonymous startup analytics sent to the authentik project.
+  avatars:
+    name: Avatar sources
+    description: >-
+      Comma-separated avatar modes, e.g. "gravatar,initials", "initials" for
+      fully offline, or an attribute/URL template. See authentik docs.
+  default_user_change_name:
+    name: Users can change name
+    description: Allow users to change their display name themselves.
+  default_user_change_email:
+    name: Users can change email
+    description: Allow users to change their email address themselves.
+  default_user_change_username:
+    name: Users can change username
+    description: Allow users to change their username themselves.
+  gdpr_compliance:
+    name: GDPR compliance
+    description: Anonymise the IP address of events when a user is deleted.
+  impersonation:
+    name: Allow impersonation
+    description: Allow administrators to impersonate other users.
+  footer_links:
+    name: Footer links
+    description: Extra links (name + URL) shown on authentik's flow pages.
+  web_workers:
+    name: Web workers
+    description: Number of web worker processes. 0 uses authentik's default. Lower on small SBCs.
+  web_threads:
+    name: Web threads
+    description: Threads per web worker. 0 uses authentik's default.
+  email_enabled:
+    name: Enable email (SMTP)
+    description: Enable outgoing email for password recovery and verification.
+  email_host:
+    name: SMTP host
+    description: Hostname of your SMTP server.
+  email_port:
+    name: SMTP port
+    description: Port of your SMTP server (587 for STARTTLS, 465 for SSL).
+  email_username:
+    name: SMTP username
+    description: Username for SMTP authentication.
+  email_password:
+    name: SMTP password
+    description: Password for SMTP authentication.
+  email_use_tls:
+    name: SMTP STARTTLS
+    description: Use STARTTLS when connecting to the SMTP server.
+  email_use_ssl:
+    name: SMTP SSL
+    description: Use implicit SSL when connecting to the SMTP server.
+  email_timeout:
+    name: SMTP timeout
+    description: Connection timeout in seconds for sending email.
+  email_from:
+    name: From address
+    description: Address authentik sends email from.
+  env_vars:
+    name: Extra environment variables
+    description: >-
+      Additional AUTHENTIK_* settings as name/value pairs, for anything not
+      exposed as an option above. See the authentik configuration docs. You can
+      also put lines in /addon_configs/…_authentik/authentik.env instead.
+network:
+  9000/tcp: authentik web/API over HTTP — Cloudflare tunnel / reverse proxy origin.
+  9443/tcp: authentik web/API over HTTPS (self-signed unless you set a Web Certificate).

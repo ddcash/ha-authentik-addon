@@ -1,0 +1,7 @@
+build_from:
+  amd64: ghcr.io/goauthentik/server:2026.5.4
+  aarch64: ghcr.io/goauthentik/server:2026.5.4
+labels:
+  org.opencontainers.image.title: authentik Home Assistant Add-on
+  org.opencontainers.image.description: authentik identity provider bundled as a Home Assistant add-on
+  org.opencontainers.image.source: https://github.com/ddcash/ha-authentik-addon

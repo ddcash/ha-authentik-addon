@@ -1,0 +1,18 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  addon-lint:
+    name: Add-on lint (authentik)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run add-on linter
+        uses: frenck/action-addon-linter@v2
+        with:
+          path: ./authentik

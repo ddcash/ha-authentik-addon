@@ -1,0 +1,110 @@
+name: authentik
+version: "2026.5.4"
+slug: authentik
+description: Self-hosted identity provider (SSO) — OIDC, SAML, LDAP and proxy auth for all your apps
+url: https://github.com/ddcash/ha-authentik-addon
+arch:
+  - amd64
+  - aarch64
+startup: services
+boot: auto
+ports:
+  9000/tcp: 9000
+  9443/tcp: 9443
+ports_description:
+  9000/tcp: authentik web/API over HTTP (Cloudflare tunnel origin / reverse proxy origin)
+  9443/tcp: authentik web/API over HTTPS (self-signed by default; set a real Web Certificate in authentik for direct use)
+webui: http://[HOST]:[PORT:9000]
+watchdog: http://[HOST]:[PORT:9000]/-/health/live/
+map:
+  - data:rw
+  - addon_config:rw
+backup_pre: /dump-db.sh
+options:
+  log_level: info
+  bootstrap_email: ""
+  bootstrap_password: ""
+  bootstrap_token: ""
+  cookie_domain: ""
+  trusted_proxy_cidrs: ""
+  postgresql_mode: internal
+  postgresql_host: ""
+  postgresql_port: 5432
+  postgresql_name: authentik
+  postgresql_user: authentik
+  postgresql_password: ""
+  postgresql_sslmode: prefer
+  redis_mode: internal
+  redis_host: ""
+  redis_port: 6379
+  redis_password: ""
+  redis_db: 0
+  redis_tls: false
+  error_reporting: false
+  disable_update_check: true
+  disable_startup_analytics: true
+  avatars: "gravatar,initials"
+  default_user_change_name: true
+  default_user_change_email: false
+  default_user_change_username: false
+  gdpr_compliance: true
+  impersonation: true
+  footer_links: []
+  web_workers: 0
+  web_threads: 0
+  email_enabled: false
+  email_host: ""
+  email_port: 587
+  email_username: ""
+  email_password: ""
+  email_use_tls: true
+  email_use_ssl: false
+  email_timeout: 10
+  email_from: ""
+  env_vars: []
+schema:
+  log_level: list(trace|debug|info|warning|error)
+  bootstrap_email: str?
+  bootstrap_password: password?
+  bootstrap_token: password?
+  cookie_domain: str?
+  trusted_proxy_cidrs: str?
+  postgresql_mode: list(internal|external)
+  postgresql_host: str?
+  postgresql_port: port?
+  postgresql_name: str?
+  postgresql_user: str?
+  postgresql_password: password?
+  postgresql_sslmode: list(disable|allow|prefer|require|verify-ca|verify-full)
+  redis_mode: list(internal|external)
+  redis_host: str?
+  redis_port: port?
+  redis_password: password?
+  redis_db: int(0,)?
+  redis_tls: bool
+  error_reporting: bool
+  disable_update_check: bool
+  disable_startup_analytics: bool
+  avatars: str
+  default_user_change_name: bool
+  default_user_change_email: bool
+  default_user_change_username: bool
+  gdpr_compliance: bool
+  impersonation: bool
+  footer_links:
+    - name: str
+      href: url
+  web_workers: int(0,)
+  web_threads: int(0,)
+  email_enabled: bool
+  email_host: str?
+  email_port: int?
+  email_username: str?
+  email_password: password?
+  email_use_tls: bool?
+  email_use_ssl: bool?
+  email_timeout: int?
+  email_from: str?
+  env_vars:
+    - name: match(^AUTHENTIK_[A-Z0-9_]+(__[A-Z0-9_]+)*$)
+      value: str
