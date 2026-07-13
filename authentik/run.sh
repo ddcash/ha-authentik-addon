@@ -19,7 +19,17 @@ OPTIONS=/data/options.json
 
 log() { echo "[authentik-addon] $*"; }
 
-opt() { jq -r "$1 // empty" "${OPTIONS}" 2>/dev/null; }
+# NOTE: do not use jq's `//` here — it treats `false` as falsy, which turned
+# boolean options set to false into empty strings (authentik's config loader
+# rejects an empty string where a bool is expected).
+opt() { jq -r "$1 | if . == null then empty else tostring end" "${OPTIONS}" 2>/dev/null; }
+
+# opt with a fallback default for options that must never be empty.
+opt_default() {
+    local v
+    v="$(opt "$1")"
+    echo "${v:-$2}"
+}
 
 # Wait for a TCP endpoint to accept connections.
 wait_for_tcp() {
@@ -241,16 +251,16 @@ apply_managed_env
 # ---------------------------------------------------------------------------
 # authentik environment — from add-on options
 # ---------------------------------------------------------------------------
-export AUTHENTIK_LOG_LEVEL="$(opt '.log_level')"
-export AUTHENTIK_ERROR_REPORTING__ENABLED="$(opt '.error_reporting')"
-export AUTHENTIK_DISABLE_UPDATE_CHECK="$(opt '.disable_update_check')"
-export AUTHENTIK_DISABLE_STARTUP_ANALYTICS="$(opt '.disable_startup_analytics')"
-export AUTHENTIK_AVATARS="$(opt '.avatars')"
-export AUTHENTIK_DEFAULT_USER_CHANGE_NAME="$(opt '.default_user_change_name')"
-export AUTHENTIK_DEFAULT_USER_CHANGE_EMAIL="$(opt '.default_user_change_email')"
-export AUTHENTIK_DEFAULT_USER_CHANGE_USERNAME="$(opt '.default_user_change_username')"
-export AUTHENTIK_GDPR_COMPLIANCE="$(opt '.gdpr_compliance')"
-export AUTHENTIK_IMPERSONATION="$(opt '.impersonation')"
+export AUTHENTIK_LOG_LEVEL="$(opt_default '.log_level' info)"
+export AUTHENTIK_ERROR_REPORTING__ENABLED="$(opt_default '.error_reporting' false)"
+export AUTHENTIK_DISABLE_UPDATE_CHECK="$(opt_default '.disable_update_check' true)"
+export AUTHENTIK_DISABLE_STARTUP_ANALYTICS="$(opt_default '.disable_startup_analytics' true)"
+export AUTHENTIK_AVATARS="$(opt_default '.avatars' 'gravatar,initials')"
+export AUTHENTIK_DEFAULT_USER_CHANGE_NAME="$(opt_default '.default_user_change_name' true)"
+export AUTHENTIK_DEFAULT_USER_CHANGE_EMAIL="$(opt_default '.default_user_change_email' false)"
+export AUTHENTIK_DEFAULT_USER_CHANGE_USERNAME="$(opt_default '.default_user_change_username' false)"
+export AUTHENTIK_GDPR_COMPLIANCE="$(opt_default '.gdpr_compliance' true)"
+export AUTHENTIK_IMPERSONATION="$(opt_default '.impersonation' true)"
 
 COOKIE_DOMAIN="$(opt '.cookie_domain')"
 [ -n "${COOKIE_DOMAIN}" ] && export AUTHENTIK_COOKIE_DOMAIN="${COOKIE_DOMAIN}"
@@ -277,12 +287,12 @@ BOOTSTRAP_TOKEN="$(opt '.bootstrap_token')"
 
 if [ "$(opt '.email_enabled')" = "true" ]; then
     export AUTHENTIK_EMAIL__HOST="$(opt '.email_host')"
-    export AUTHENTIK_EMAIL__PORT="$(opt '.email_port')"
+    export AUTHENTIK_EMAIL__PORT="$(opt_default '.email_port' 587)"
     export AUTHENTIK_EMAIL__USERNAME="$(opt '.email_username')"
     export AUTHENTIK_EMAIL__PASSWORD="$(opt '.email_password')"
-    export AUTHENTIK_EMAIL__USE_TLS="$(opt '.email_use_tls')"
-    export AUTHENTIK_EMAIL__USE_SSL="$(opt '.email_use_ssl')"
-    export AUTHENTIK_EMAIL__TIMEOUT="$(opt '.email_timeout')"
+    export AUTHENTIK_EMAIL__USE_TLS="$(opt_default '.email_use_tls' true)"
+    export AUTHENTIK_EMAIL__USE_SSL="$(opt_default '.email_use_ssl' false)"
+    export AUTHENTIK_EMAIL__TIMEOUT="$(opt_default '.email_timeout' 10)"
     export AUTHENTIK_EMAIL__FROM="$(opt '.email_from')"
 fi
 

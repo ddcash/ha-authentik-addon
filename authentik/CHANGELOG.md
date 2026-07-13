@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.5.4.1
+
+- Fix startup crash on first boot: boolean add-on options set to `false`
+  (e.g. `error_reporting`, `default_user_change_email`) were exported as empty
+  strings, which authentik's config loader rejects with "provided string was
+  not `true` or `false`".
+- Harden all option parsing with explicit defaults.
+
 ## 2026.5.4
 
 - Initial release.

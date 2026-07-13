@@ -5,7 +5,7 @@
 # Always exits 0 — a failed dump must not block the Home Assistant backup.
 
 OPTIONS=/data/options.json
-opt() { jq -r "$1 // empty" "${OPTIONS}" 2>/dev/null; }
+opt() { jq -r "$1 | if . == null then empty else tostring end" "${OPTIONS}" 2>/dev/null; }
 
 mkdir -p /config/backups
 

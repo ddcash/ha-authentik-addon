@@ -40,9 +40,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          CURRENT="$(sed -n 's/^version: "\(.*\)"/\1/p' authentik/config.yaml)"
+          # Read the pinned authentik version from build.yaml, not the add-on
+          # version in config.yaml: add-on-only hotfixes append a 4th number
+          # (e.g. 2026.5.4.1) while the image pin stays the plain upstream
+          # version.
+          CURRENT="$(sed -n 's|.*ghcr.io/goauthentik/server:||p' authentik/build.yaml | head -n 1)"
           if [ -z "${CURRENT}" ]; then
-            echo "::error::Could not read current version from authentik/config.yaml"
+            echo "::error::Could not read pinned authentik version from authentik/build.yaml"
             exit 1
           fi
 
@@ -92,9 +96,12 @@ jobs:
           set -euo pipefail
 
           OLD_RE="${CURRENT//./\\.}"
-          for f in authentik/config.yaml authentik/build.yaml authentik/Dockerfile authentik/DOCS.md README.md; do
+          for f in authentik/build.yaml authentik/Dockerfile authentik/DOCS.md README.md; do
             sed -i "s/${OLD_RE}/${LATEST}/g" "${f}"
           done
+          # The add-on version may carry a hotfix suffix, so set it explicitly
+          # rather than string-replacing.
+          sed -i "s/^version: \".*\"/version: \"${LATEST}\"/" authentik/config.yaml
 
           # Prepend a changelog entry ("# Changelog" + blank line are the
           # first two lines by convention).

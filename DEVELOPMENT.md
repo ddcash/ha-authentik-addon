@@ -66,7 +66,10 @@ check manually via **Actions → Update authentik version → Run workflow**.
 Notes:
 
 - The add-on version always equals the bundled authentik version, so the two
-  stay in sync by construction.
+  stay in sync by construction. Add-on-only fixes between authentik releases
+  append a fourth number (e.g. `2026.5.4.1`); the workflow reads the real
+  authentik pin from `build.yaml`, so hotfix suffixes don't confuse it and the
+  next upstream release replaces them normally.
 - If you enable branch protection on `main`, allow the built-in
   `GITHUB_TOKEN` to push (or convert the workflow's last step to open a PR).
 - authentik migrates its database forward automatically but does not support
