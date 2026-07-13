@@ -1,5 +1,5 @@
 name: authentik
-version: "2026.5.4.3"
+version: "2026.5.4.4"
 slug: authentik
 description: Self-hosted identity provider (SSO) — OIDC, SAML, LDAP and proxy auth for all your apps
 url: https://github.com/ddcash/ha-authentik-addon
@@ -7,7 +7,6 @@ arch:
   - amd64
   - aarch64
 startup: services
-boot: auto
 ports:
   9000/tcp: 9000
   9443/tcp: 9443
@@ -15,10 +14,9 @@ ports_description:
   9000/tcp: authentik web/API over HTTP (Cloudflare tunnel origin / reverse proxy origin)
   9443/tcp: authentik web/API over HTTPS (self-signed by default; set a real Web Certificate in authentik for direct use)
 webui: http://[HOST]:[PORT:9000]
-watchdog: http://[HOST]:[PORT:9000]/-/health/live/
 map:
-  - data:rw
-  - addon_config:rw
+  - type: addon_config
+    read_only: false
 backup_pre: /dump-db.sh
 options:
   log_level: info

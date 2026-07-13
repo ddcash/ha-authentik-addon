@@ -13,19 +13,23 @@ RUN apt-get update \
         redis-server \
         jq \
         openssl \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY run.sh /run.sh
 COPY dump-db.sh /dump-db.sh
 RUN chmod a+x /run.sh /dump-db.sh
 
-# CRITICAL: drop the base image's HEALTHCHECK. It runs `ak healthcheck` — as
-# root, since this add-on stays root for its supervisor script — and authentik's
-# `ak` entrypoint, when root, does `chown -R authentik:authentik /data`, which
-# rips the PostgreSQL data directory (also under /data) away from the postgres
-# user ~30s after every boot. The Home Assistant Supervisor watchdog
-# (config.yaml) does the health checking instead.
-HEALTHCHECK NONE
+# CRITICAL: replace the base image's HEALTHCHECK. Its `ak healthcheck` runs as
+# root (this add-on stays root for its supervisor script), and authentik's `ak`
+# entrypoint, when root, does `chown -R authentik:authentik /data` — ripping
+# the PostgreSQL data directory (also under /data) away from the postgres user
+# ~30s after every boot. This plain curl probe against authentik's liveness
+# endpoint is side-effect free, drives the add-on's Starting → Running state in
+# the Home Assistant UI, and works regardless of how the host port is remapped.
+# The generous start period covers first-boot database migrations.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:9000/-/health/live/ || exit 1
 
 # Replace authentik's entrypoint with our supervisor script; Home Assistant's
 # docker --init (tini) acts as PID 1.

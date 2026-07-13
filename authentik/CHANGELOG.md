@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.5.4.4
+
+- Fix add-on showing "Starting" forever in Home Assistant: replaced the
+  obsolete `watchdog` URL (which broke when the host port was remapped) with a
+  safe Docker `HEALTHCHECK` — a plain curl against authentik's liveness
+  endpoint inside the container. The add-on now transitions to "Running" once
+  authentik is actually up, and the Supervisor watchdog toggle keys off this
+  health state.
+- Add official authentik icon and logo.
+- Fix add-on config schema for the lint workflow: removed the invalid
+  `data:rw` map entry (`/data` is always mounted) and the redundant
+  `boot: auto` default; `addon_config` now uses the structured map format.
+- Update GitHub Actions to `actions/checkout@v5` (Node 20 deprecation).
+
 ## 2026.5.4.3
 
 - Fix blank web UI: `ak worker` and `ak server` both bind port 9000 when run
