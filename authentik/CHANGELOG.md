@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.5.4.2
+
+- Fix PostgreSQL "Permission denied" crash ~30s after boot: the base image's
+  Docker `HEALTHCHECK` runs `ak healthcheck` as root, and authentik's
+  entrypoint chowns all of `/data` (including the bundled PostgreSQL data
+  directory) to the authentik user when run as root. The inherited healthcheck
+  is now disabled (`HEALTHCHECK NONE`) — health monitoring is done by the
+  Supervisor watchdog. Startup re-chowns the database directory, so installs
+  broken by this heal themselves on update.
+- Store uploaded media via `AUTHENTIK_STORAGE__FILE__PATH=/config/media`
+  (authentik 2026.x file-storage path) instead of the legacy `/media` symlink.
+
 ## 2026.5.4.1
 
 - Fix startup crash on first boot: boolean add-on options set to `false`

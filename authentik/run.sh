@@ -89,12 +89,16 @@ link_path() {
         ln -s "${target}" "${path}"
     fi
 }
-link_path /media /config/media
 link_path /certs /config/certs
 link_path /templates /config/custom-templates
 # built-in blueprints ship in /blueprints; custom ones are picked up from a
 # subdirectory
 link_path /blueprints/custom /config/blueprints
+
+# authentik 2026.x stores uploaded media under its file-storage path (default
+# /data — which is this add-on's private volume); point it at the
+# user-accessible addon_config storage instead.
+export AUTHENTIK_STORAGE__FILE__PATH="/config/media"
 
 # ---------------------------------------------------------------------------
 # Secrets (generated once, persisted in /data)
