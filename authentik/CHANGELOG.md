@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.5.5
+
+- Update authentik to 2026.5.5 (automated).
+- Release notes: https://docs.goauthentik.io/docs/releases/2026.5#fixed-in-202655
+
 ## 2026.5.4.5
 
 - The addon_config folder is now a complete, portable backup: the SQL dump

@@ -2,7 +2,7 @@
 # already contains the authentik server, worker and embedded outpost.
 # We add PostgreSQL and Redis so the whole stack runs in a single container,
 # as required for a Home Assistant add-on.
-ARG BUILD_FROM=ghcr.io/goauthentik/server:2026.5.4
+ARG BUILD_FROM=ghcr.io/goauthentik/server:2026.5.5
 FROM ${BUILD_FROM}
 
 USER root
