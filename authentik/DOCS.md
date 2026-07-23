@@ -220,7 +220,7 @@ app and point the tunnel (or your proxy) at the outpost:
 # docker-compose.yml on the host that runs the unprotected app
 services:
   authentik-proxy:
-    image: ghcr.io/goauthentik/proxy:2026.5.5
+    image: ghcr.io/goauthentik/proxy:2026.5.6
     restart: unless-stopped
     ports:
       - "9000:9000"
