@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.8.1
+
+- Update authentik to 2026.8.1 (automated).
+- Release notes: 
+
 ## 2026.8.0
 
 - Update authentik to 2026.8.0 (automated).
