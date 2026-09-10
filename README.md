@@ -16,7 +16,7 @@ Cloudflare tunnels on other hosts.
 
 | Add-on | Description |
 | --- | --- |
-| [authentik](./authentik) | Identity provider / SSO (authentik 2026.8.1) |
+| [authentik](./authentik) | Identity provider / SSO (authentik 2026.8.2) |
 
 ## Installation
 
