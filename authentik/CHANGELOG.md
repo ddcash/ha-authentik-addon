@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.8.4
+
+- Update authentik to 2026.8.4 (automated).
+- Release notes: https://docs.goauthentik.io/docs/releases/2026.8#fixed-in-202684
+
 ## 2026.8.3
 
 - Update authentik to 2026.8.3 (automated).
